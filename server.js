@@ -1,5 +1,5 @@
 const express = require('express');
-const { chromium } = require('playwright');
+const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 
@@ -57,49 +57,32 @@ function buildHtml(title, pages) {
 }
 
 app.post('/generate-ebook', async (req, res) => {
-  const { title, pages } = req.body;
-
-  if (!title || !Array.isArray(pages) || pages.length === 0) {
-    return res.status(400).json({ error: 'Se requiere "title" y un array "pages" con al menos un elemento.' });
-  }
-
-  let browser;
   try {
-    const html = buildHtml(title, pages);
-    const filename = `ebook-${Date.now()}.pdf`;
-    const outputPath = path.join(PUBLIC_DIR, filename);
+    const html = "<html><body><h1>Test PDF</h1></body></html>";
 
-    process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/render/.cache/ms-playwright';
-
-    const timeout = setTimeout(() => { console.error("Timeout en generación"); }, 20000);
-
-    console.log("Iniciando Playwright...");
-    browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    const response = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': process.env.PDFSHIFT_API_KEY
+      },
+      body: JSON.stringify({ source: html })
     });
-    console.log("Browser iniciado");
 
-    const page = await browser.newPage();
-    console.log("Nueva página creada");
-    await page.setContent(html, { waitUntil: 'load' });
-    await page.pdf({
-      path: outputPath,
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '2.5cm', bottom: '2.5cm', left: '2.5cm', right: '2.5cm' },
+    if (!response.ok) {
+      const error = await response.text();
+      return res.status(500).json({ error });
+    }
+
+    const buffer = await response.arrayBuffer();
+
+    res.json({
+      ok: true,
+      size: buffer.byteLength
     });
-    clearTimeout(timeout);
-    await browser.close();
-
-    const url = `${BASE_URL}/public/${filename}`;
-    console.log(`[generate-ebook] PDF generado: ${url}`);
-    res.json({ url });
 
   } catch (err) {
-    if (browser) await browser.close().catch(() => {});
-    console.error('[generate-ebook] Error:', err.message);
-    res.status(500).json({ error: 'Error al generar el ebook.', detail: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
