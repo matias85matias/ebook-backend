@@ -69,23 +69,27 @@ app.post('/generate-ebook', async (req, res) => {
     const filename = `ebook-${Date.now()}.pdf`;
     const outputPath = path.join(PUBLIC_DIR, filename);
 
-    console.log(`[generate-ebook] Iniciando: "${title}" (${pages.length} páginas)`);
-
     process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/render/.cache/ms-playwright';
 
+    const timeout = setTimeout(() => { console.error("Timeout en generación"); }, 20000);
+
+    console.log("Iniciando Playwright...");
     browser = await chromium.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     });
+    console.log("Browser iniciado");
 
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle' });
+    console.log("Nueva página creada");
+    await page.setContent(html, { waitUntil: 'load' });
     await page.pdf({
       path: outputPath,
       format: 'A4',
       printBackground: true,
       margin: { top: '2.5cm', bottom: '2.5cm', left: '2.5cm', right: '2.5cm' },
     });
+    clearTimeout(timeout);
     await browser.close();
 
     const url = `${BASE_URL}/public/${filename}`;
