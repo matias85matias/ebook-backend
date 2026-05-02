@@ -15,6 +15,10 @@ if (!fs.existsSync(PUBLIC_DIR)) {
 app.use(express.json());
 app.use('/public', express.static(PUBLIC_DIR));
 
+app.get('/', (req, res) => {
+  res.send('API Ebook funcionando');
+});
+
 function buildHtml(title, pages) {
   const chaptersHtml = pages.map((page, index) => {
     const text = page.text || '';
@@ -34,76 +38,19 @@ function buildHtml(title, pages) {
 <head>
   <meta charset="UTF-8" />
   <style>
-    @page {
-      size: A4;
-      margin: 2.5cm;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: Georgia, 'Times New Roman', serif;
-      font-size: 12pt;
-      color: #1a1a1a;
-      background: white;
-    }
-
-    .cover {
-      width: 100%;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      page-break-after: always;
-    }
-
-    .cover h1 {
-      font-size: 32pt;
-      text-align: center;
-      font-weight: bold;
-      letter-spacing: 2px;
-      color: #111;
-    }
-
-    .page {
-      page-break-before: always;
-      padding-top: 1cm;
-    }
-
-    h2 {
-      font-size: 18pt;
-      margin-bottom: 0.8cm;
-      color: #222;
-      border-bottom: 1px solid #ccc;
-      padding-bottom: 6px;
-    }
-
-    p {
-      text-align: justify;
-      line-height: 1.8;
-      font-size: 12pt;
-    }
-
-    .drop-cap {
-      float: left;
-      font-size: 52pt;
-      line-height: 0.75;
-      margin-right: 8px;
-      margin-top: 6px;
-      font-weight: bold;
-      color: #111;
-      font-family: Georgia, serif;
-    }
+    @page { size: A4; margin: 2.5cm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Georgia, serif; font-size: 12pt; color: #1a1a1a; background: white; }
+    .cover { width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; page-break-after: always; }
+    .cover h1 { font-size: 32pt; text-align: center; font-weight: bold; letter-spacing: 2px; color: #111; }
+    .page { page-break-before: always; padding-top: 1cm; }
+    h2 { font-size: 18pt; margin-bottom: 0.8cm; color: #222; border-bottom: 1px solid #ccc; padding-bottom: 6px; }
+    p { text-align: justify; line-height: 1.8; font-size: 12pt; }
+    .drop-cap { float: left; font-size: 52pt; line-height: 0.75; margin-right: 8px; margin-top: 6px; font-weight: bold; color: #111; font-family: Georgia, serif; }
   </style>
 </head>
 <body>
-  <div class="cover">
-    <h1>${title}</h1>
-  </div>
+  <div class="cover"><h1>${title}</h1></div>
   ${chaptersHtml}
 </body>
 </html>`;
@@ -122,29 +69,30 @@ app.post('/generate-ebook', async (req, res) => {
     const filename = `ebook-${Date.now()}.pdf`;
     const outputPath = path.join(PUBLIC_DIR, filename);
 
-    console.log(`[generate-ebook] Iniciando generación: "${title}" (${pages.length} páginas)`);
+    console.log(`[generate-ebook] Iniciando: "${title}" (${pages.length} páginas)`);
 
     browser = await chromium.launch({
       headless: true,
+      executablePath: process.env.PLAYWRIGHT_BROWSERS_PATH
+        ? undefined
+        : '/usr/bin/chromium-browser',
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     });
+
     const page = await browser.newPage();
-
     await page.setContent(html, { waitUntil: 'networkidle' });
-
     await page.pdf({
       path: outputPath,
       format: 'A4',
       printBackground: true,
       margin: { top: '2.5cm', bottom: '2.5cm', left: '2.5cm', right: '2.5cm' },
     });
-
     await browser.close();
 
     const url = `${BASE_URL}/public/${filename}`;
     console.log(`[generate-ebook] PDF generado: ${url}`);
-
     res.json({ url });
+
   } catch (err) {
     if (browser) await browser.close().catch(() => {});
     console.error('[generate-ebook] Error:', err.message);
