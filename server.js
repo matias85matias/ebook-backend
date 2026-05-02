@@ -56,15 +56,10 @@ function buildHtml(title, pages) {
 
 app.post('/generate-ebook', async (req, res) => {
   try {
-    const { title, pages } = req.body || {};
-
-    const html = `<html><body>
-      <h1>${title || 'Test'}</h1>
-      <p>${(pages && pages[0] && pages[0].text) || 'Contenido'}</p>
-    </body></html>`;
+    const html = "<html><body><h1>PDF OK</h1></body></html>";
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
     const response = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
@@ -86,12 +81,9 @@ app.post('/generate-ebook', async (req, res) => {
     const buffer = Buffer.from(await response.arrayBuffer());
 
     res.setHeader('Content-Type', 'application/pdf');
-    return res.send(buffer);
+    res.send(buffer);
 
   } catch (err) {
-    if (err.name === 'AbortError') {
-      return res.status(504).json({ error: 'Timeout PDFShift' });
-    }
     return res.status(500).json({ error: err.message });
   }
 });
