@@ -1,5 +1,5 @@
 const express = require('express');
-const { chromium } = require('playwright');
+const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
@@ -69,14 +69,12 @@ app.post('/generate-ebook', async (req, res) => {
     const filename = `ebook-${Date.now()}.pdf`;
     const outputPath = path.join(PUBLIC_DIR, filename);
 
-    process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/render/.cache/ms-playwright';
-
     const timeout = setTimeout(() => { console.error("Timeout en generación"); }, 20000);
 
-    console.log("Iniciando Playwright...");
-    browser = await chromium.launch({
+    console.log("Iniciando Puppeteer...");
+    browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     console.log("Browser iniciado");
 
@@ -86,8 +84,7 @@ app.post('/generate-ebook', async (req, res) => {
     await page.pdf({
       path: outputPath,
       format: 'A4',
-      printBackground: true,
-      margin: { top: '2.5cm', bottom: '2.5cm', left: '2.5cm', right: '2.5cm' },
+      printBackground: true
     });
     clearTimeout(timeout);
     await browser.close();
