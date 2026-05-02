@@ -55,21 +55,16 @@ function buildHtml(title, pages) {
 }
 
 app.post('/generate-ebook', async (req, res) => {
-  console.log("STEP 1: request recibido");
-  const { title, pages } = req.body;
-
-  if (!title || !Array.isArray(pages) || pages.length === 0) {
-    return res.status(400).json({ error: 'Se requiere "title" y un array "pages".' });
-  }
-
   try {
-    const html = buildHtml(title, pages);
-    console.log("STEP 2: HTML generado");
+    const { title, pages } = req.body || {};
 
-    console.log("STEP 3: llamando a PDFShift...");
+    const html = `<html><body>
+      <h1>${title || 'Test'}</h1>
+      <p>${(pages && pages[0] && pages[0].text) || 'Contenido'}</p>
+    </body></html>`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
     const response = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
@@ -82,30 +77,22 @@ app.post('/generate-ebook', async (req, res) => {
     });
 
     clearTimeout(timeout);
-    console.log("STEP 4: respuesta recibida");
 
     if (!response.ok) {
       const error = await response.text();
       return res.status(500).json({ error });
     }
 
-    const buffer = await response.arrayBuffer();
-    console.log("STEP 5: PDF listo", buffer.byteLength);
+    const buffer = Buffer.from(await response.arrayBuffer());
 
-    const filename = `ebook-${Date.now()}.pdf`;
-    const outputPath = path.join(PUBLIC_DIR, filename);
-    fs.writeFileSync(outputPath, Buffer.from(buffer));
-
-    const url = `${BASE_URL}/public/${filename}`;
-    res.json({ url });
+    res.setHeader('Content-Type', 'application/pdf');
+    return res.send(buffer);
 
   } catch (err) {
     if (err.name === 'AbortError') {
-      console.error("Timeout PDFShift");
-      return res.status(500).json({ error: "Timeout generando PDF" });
+      return res.status(504).json({ error: 'Timeout PDFShift' });
     }
-    console.error("ERROR:", err.message);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
