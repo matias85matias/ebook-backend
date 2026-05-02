@@ -71,6 +71,8 @@ app.post('/generate-ebook', async (req, res) => {
 
     console.log(`[generate-ebook] Iniciando: "${title}" (${pages.length} páginas)`);
 
+    process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/render/.cache/ms-playwright';
+
     browser = await chromium.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
