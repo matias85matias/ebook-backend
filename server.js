@@ -73,9 +73,6 @@ app.post('/generate-ebook', async (req, res) => {
 
     browser = await chromium.launch({
       headless: true,
-      executablePath: process.env.PLAYWRIGHT_BROWSERS_PATH
-        ? undefined
-        : '/usr/bin/chromium-browser',
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     });
 
