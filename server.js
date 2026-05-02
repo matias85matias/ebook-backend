@@ -1,5 +1,4 @@
 const express = require('express');
-const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 
@@ -16,7 +15,7 @@ app.use(express.json());
 app.use('/public', express.static(PUBLIC_DIR));
 
 app.get('/', (req, res) => {
-  res.send('API Ebook funcionando');
+  res.send('SERVER OK');
 });
 
 function buildHtml(title, pages) {
@@ -24,7 +23,6 @@ function buildHtml(title, pages) {
     const text = page.text || '';
     const firstChar = text.charAt(0);
     const rest = text.slice(1);
-
     return `
       <div class="page">
         <h2>${page.title || `Capítulo ${index + 1}`}</h2>
@@ -57,8 +55,14 @@ function buildHtml(title, pages) {
 }
 
 app.post('/generate-ebook', async (req, res) => {
+  const { title, pages } = req.body;
+
+  if (!title || !Array.isArray(pages) || pages.length === 0) {
+    return res.status(400).json({ error: 'Se requiere "title" y un array "pages".' });
+  }
+
   try {
-    const html = "<html><body><h1>Test PDF</h1></body></html>";
+    const html = buildHtml(title, pages);
 
     const response = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
@@ -75,18 +79,20 @@ app.post('/generate-ebook', async (req, res) => {
     }
 
     const buffer = await response.arrayBuffer();
+    const filename = `ebook-${Date.now()}.pdf`;
+    const outputPath = path.join(PUBLIC_DIR, filename);
+    fs.writeFileSync(outputPath, Buffer.from(buffer));
 
-    res.json({
-      ok: true,
-      size: buffer.byteLength
-    });
+    const url = `${BASE_URL}/public/${filename}`;
+    console.log(`[generate-ebook] PDF generado: ${url}`);
+    res.json({ url });
 
   } catch (err) {
+    console.error('[generate-ebook] Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en ${BASE_URL}`);
-  console.log(`PDFs disponibles en ${BASE_URL}/public/`);
+  console.log('Servidor corriendo en puerto ' + PORT);
 });
