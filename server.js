@@ -54,38 +54,8 @@ function buildHtml(title, pages) {
 </html>`;
 }
 
-app.post('/generate-ebook', async (req, res) => {
-  try {
-    const html = "<html><body><h1>PDF OK</h1></body></html>";
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const response = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': process.env.PDFSHIFT_API_KEY
-      },
-      body: JSON.stringify({ source: html }),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      const error = await response.text();
-      return res.status(500).json({ error });
-    }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.send(buffer);
-
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
+app.post('/generate-ebook', (req, res) => {
+  res.json({ ok: true, message: "backend responde" });
 });
 
 app.listen(PORT, () => {
