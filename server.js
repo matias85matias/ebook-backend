@@ -55,6 +55,7 @@ function buildHtml(title, pages) {
 }
 
 app.post('/generate-ebook', async (req, res) => {
+  console.log("STEP 1: request recibido");
   const { title, pages } = req.body;
 
   if (!title || !Array.isArray(pages) || pages.length === 0) {
@@ -63,6 +64,12 @@ app.post('/generate-ebook', async (req, res) => {
 
   try {
     const html = buildHtml(title, pages);
+    console.log("STEP 2: HTML generado");
+
+    console.log("STEP 3: llamando a PDFShift...");
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
     const response = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
@@ -70,8 +77,12 @@ app.post('/generate-ebook', async (req, res) => {
         'Content-Type': 'application/json',
         'X-API-Key': process.env.PDFSHIFT_API_KEY
       },
-      body: JSON.stringify({ source: html })
+      body: JSON.stringify({ source: html }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeout);
+    console.log("STEP 4: respuesta recibida");
 
     if (!response.ok) {
       const error = await response.text();
@@ -79,16 +90,21 @@ app.post('/generate-ebook', async (req, res) => {
     }
 
     const buffer = await response.arrayBuffer();
+    console.log("STEP 5: PDF listo", buffer.byteLength);
+
     const filename = `ebook-${Date.now()}.pdf`;
     const outputPath = path.join(PUBLIC_DIR, filename);
     fs.writeFileSync(outputPath, Buffer.from(buffer));
 
     const url = `${BASE_URL}/public/${filename}`;
-    console.log(`[generate-ebook] PDF generado: ${url}`);
     res.json({ url });
 
   } catch (err) {
-    console.error('[generate-ebook] Error:', err.message);
+    if (err.name === 'AbortError') {
+      console.error("Timeout PDFShift");
+      return res.status(500).json({ error: "Timeout generando PDF" });
+    }
+    console.error("ERROR:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
